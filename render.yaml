@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: global-messenger-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install --include=dev --include=optional && npm run db:generate && npm run build -w apps/server
+    startCommand: npm run start -w apps/server
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: global-messenger-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGIN
+        value: https://global-messenger-web.narsingbeesetti006.workers.dev
+      - key: PASSWORD_RESET_WEB_ORIGIN
+        value: https://global-messenger-web.narsingbeesetti006.workers.dev
+      - key: UPLOAD_DIR
+        value: /tmp/global-messenger/uploads
+
+  - type: web
+    name: global-messenger-web
+    runtime: static
+    plan: free
+    region: singapore
+    buildCommand: rm -rf node_modules apps/web/node_modules apps/web/dist && npm install --include=dev --include=optional && npm run build -w apps/web
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://global-messenger-api.onrender.com
+    routes:
+      # Password reset must be handled by the Global Messenger reset page,
+      # not the SPA fallback. Keep these before the catch-all rewrite.
+      - type: rewrite
+        source: /reset-password
+        destination: /reset-password/index.html
+      - type: rewrite
+        source: /reset-password/
+        destination: /reset-password/index.html
+      - type: rewrite
+        source: /reset-password.html
+        destination: /reset-password.html
+      - type: rewrite
+        source: /reset-password.html/*
+        destination: /reset-password.html
+      - type: rewrite
+        source: /reset-password/*
+        destination: /reset-password/index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: global-messenger-db
+    databaseName: global_messenger
+    plan: free
+    region: singapore
